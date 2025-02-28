@@ -8,19 +8,36 @@ namespace Shader_Compile_Script
         {
             try
             {
-                string[] SDKpaths = Directory.GetDirectories("C:/VulkanSDK/");
-                string glslcPath = $"{SDKpaths.Last()}/Bin/glslc.exe"; ;
-                Console.WriteLine($"Using SDK {SDKpaths.Last()}");
-                if (!File.Exists(glslcPath))
+                string SDKpath = "C:/VulkanSDK/";
+                string glslcPath;
+                if (File.Exists("./glslc.exe"))
                 {
-                    throw new Exception($"Couldn't find glslc.exe at {glslcPath}");
+                    glslcPath = "./glslc.exe";
                 }
+                else if (Directory.Exists(SDKpath) && Directory.GetDirectories(SDKpath).Length > 0)
+                {
+                    string[] SDKpaths = Directory.GetDirectories(SDKpath);
+                    glslcPath = $"{SDKpaths.Last()}/Bin/glslc.exe"; // Highest SDK version will be last in list
+                }
+                else
+                {
+                    throw new Exception("glslc.exe couldn't be found");
+                }
+                Console.WriteLine($@"Using ""{glslcPath}""");
 
                 string searchPath = @"./";
                 if (args.Length > 0)
                 {
-                    searchPath = args[0];
+                    if (Directory.Exists(args[0]))
+                    {
+                        searchPath = args[0];
+                    }
+                    else
+                    {
+                        throw new Exception($@"Invalid path provided in argument ""{args[0]}""");
+                    }
                 }
+
                 List<string> files =
                 [
                     .. Directory.GetFiles(searchPath, "*.vert", SearchOption.AllDirectories),
@@ -30,7 +47,7 @@ namespace Shader_Compile_Script
                     .. Directory.GetFiles(searchPath, "*.geom", SearchOption.AllDirectories),
                     .. Directory.GetFiles(searchPath, "*.comp", SearchOption.AllDirectories),
                 ];
-                Console.WriteLine($"{files.Count} shaders found");
+                Console.WriteLine($@"{files.Count} shaders found in ""{searchPath}""");
                 foreach (string file in files)
                 {
                     Console.WriteLine($@"Compiling ""{file}""");
