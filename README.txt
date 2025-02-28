@@ -1,8 +1,12 @@
-A script that scans a folder and subfolders for shaders and compiles them to spir-v with glslc.exe.
+A script that scans a folder and its subfolders for shaders and compiles them to spir-v with glslc.exe.
 
-Looks for glslc.exe in "./" and in Vulkan SDKs installed in "C:/VulkanSDK/".
-Search path defaults to "./". A custom path can be provided with a command argument. Ex. "Shader Compile Script.exe" [directory]
-Outputs .spv file in the same directory as the input file.
+Usage:
+-d [directory path] Sets a custom search path.
+-g [file path] Sets a custom glslc.exe path.
+
+The search path defaults to "./".
+The glslc path defaults to "./glslc.exe" or "C:/VulkanSDK/[latest version installed]/Bin/glslc.exe".
+Outputs .spv file in the same directory as the inputted shader file.
 
 Supported input file extensions:
 .vert
@@ -11,3 +15,7 @@ Supported input file extensions:
 .tese
 .geom
 .comp
+
+Building:
+1. Install .Net SDK 8.0 or higher.
+2. Build it like any basic C# console app.

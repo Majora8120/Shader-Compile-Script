@@ -9,34 +9,63 @@ namespace Shader_Compile_Script
             try
             {
                 string SDKpath = "C:/VulkanSDK/";
-                string glslcPath;
-                if (File.Exists("./glslc.exe"))
-                {
-                    glslcPath = "./glslc.exe";
-                }
-                else if (Directory.Exists(SDKpath) && Directory.GetDirectories(SDKpath).Length > 0)
-                {
-                    string[] SDKpaths = Directory.GetDirectories(SDKpath);
-                    glslcPath = $"{SDKpaths.Last()}/Bin/glslc.exe"; // Highest SDK version will be last in list
-                }
-                else
-                {
-                    throw new Exception("glslc.exe couldn't be found");
-                }
-                Console.WriteLine($@"Using ""{glslcPath}""");
+                string? glslcPath = null;
+                string? searchPath = null;
 
-                string searchPath = @"./";
                 if (args.Length > 0)
                 {
-                    if (Directory.Exists(args[0]))
+                    if (args.Length != 2 && args.Length != 4)
                     {
-                        searchPath = args[0];
+                        throw new ArgumentException("Invalid amount of arguments provided");
+                    }
+                    for (int i = 0; i < args.Length; i += 2)
+                    {
+                        switch (args[i])
+                        {
+                            case "-d":
+                                searchPath = args[i + 1];
+                                break;
+                            case "-g":
+                                glslcPath = args[i + 1];
+                                break;
+                            default:
+                                throw new ArgumentException("Invalid argument(s) provided");
+                        }
+                    }
+                }
+
+                if (searchPath == null)
+                {
+                    searchPath = "./";
+                }
+
+                if (glslcPath == null)
+                {
+                    if (File.Exists("./glslc.exe"))
+                    {
+                        glslcPath = "./glslc.exe";
+                    }
+                    else if (Directory.Exists(SDKpath) && Directory.GetDirectories(SDKpath).Length > 0)
+                    {
+                        string[] SDKpaths = Directory.GetDirectories(SDKpath);
+                        glslcPath = $"{SDKpaths.Last()}/Bin/glslc.exe"; // Highest SDK version will be last in list
                     }
                     else
                     {
-                        throw new Exception($@"Invalid path provided in argument ""{args[0]}""");
+                        throw new FileNotFoundException("glslc.exe couldn't be found");
                     }
                 }
+
+                if (!Directory.Exists(searchPath))
+                {
+                    throw new DirectoryNotFoundException($"{searchPath} does not exist.");
+                }
+                if (!File.Exists(glslcPath))
+                {
+                    throw new FileNotFoundException($"{glslcPath} does not exist.");
+                }
+
+                Console.WriteLine($@"Using ""{glslcPath}""");
 
                 List<string> files =
                 [
