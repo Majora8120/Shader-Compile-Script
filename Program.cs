@@ -34,12 +34,12 @@ namespace Shader_Compile_Script
                     }
                 }
 
-                if (searchPath == null)
+                if (searchPath is null)
                 {
                     searchPath = "./";
                 }
 
-                if (glslcPath == null)
+                if (glslcPath is null && OperatingSystem.IsWindows())
                 {
                     if (File.Exists("./glslc.exe"))
                     {
@@ -53,6 +53,17 @@ namespace Shader_Compile_Script
                     else
                     {
                         throw new FileNotFoundException("glslc.exe couldn't be found");
+                    }
+                }
+                else if (glslcPath is null && OperatingSystem.IsLinux())
+                {
+                    if (File.Exists("./glslc"))
+                    {
+                        glslcPath = "./glslc";
+                    }
+                    else
+                    {
+                        throw new FileNotFoundException("glslc couldn't be found");
                     }
                 }
 
