@@ -1,22 +1,28 @@
-A script that scans a folder and its subfolders for shaders and compiles them to spir-v with glslc.
-Supports Windows and Linux (only tested on Ubuntu).
+A script that scans a folder and its subfolders for shaders and compiles them to spir-v with glslc or slangc.
+Tested on Windows and Ubuntu. Should work fine on other platforms but no guarantee.
 
 Usage:
--d [directory path] Sets a custom search path.
--g [file path] Sets a custom glslc path.
+-dir [directory path] search directory (Required).
+-glslc [file path] glslc path (Optional).
+-slangc [file path] slangc path (Optional).
 
-The search path defaults to "./".
-The glslc file path defaults to "./glslc(.exe)". 
-The Windows build also looks in "C:/VulkanSDK/x.x.x.x/Bin/glslc.exe" if glslc.exe is not found in "./".
 Outputs .spv file in the same directory as the inputted shader file.
 
+Notice:
+Does not support custom arguments for glslc or slangc.
+Does pass some hardcoded arguments to slangc. You probably need to modify them to compile your shaders.
+Error messages from glslc and slangc will not be in order.
+
 Supported input file extensions:
+Glslc:
 .vert
 .frag
 .tesc
 .tese
 .geom
 .comp
+Slangc:
+.slang
 
 Building:
 1. Install .Net SDK 8.0 or higher.

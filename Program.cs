@@ -8,13 +8,13 @@ namespace Shader_Compile_Script
         {
             try
             {
-                string SDKpath = "C:/VulkanSDK/";
                 string? glslcPath = null;
+                string? slangcPath = null;
                 string? searchPath = null;
 
                 if (args.Length > 0)
                 {
-                    if (args.Length != 2 && args.Length != 4)
+                    if (args.Length != 2 && args.Length != 4 && args.Length != 6)
                     {
                         throw new ArgumentException("Invalid amount of arguments provided");
                     }
@@ -22,11 +22,14 @@ namespace Shader_Compile_Script
                     {
                         switch (args[i])
                         {
-                            case "-d":
+                            case "-dir":
                                 searchPath = args[i + 1];
                                 break;
-                            case "-g":
+                            case "-glslc":
                                 glslcPath = args[i + 1];
+                                break;
+                            case "-slangc":
+                                slangcPath = args[i + 1];
                                 break;
                             default:
                                 throw new ArgumentException("Invalid argument(s) provided");
@@ -36,70 +39,78 @@ namespace Shader_Compile_Script
 
                 if (searchPath is null)
                 {
-                    searchPath = "./";
+                    throw new ArgumentException("No searchPath provided");
                 }
-
-                if (glslcPath is null && OperatingSystem.IsWindows())
-                {
-                    if (File.Exists("./glslc.exe"))
-                    {
-                        glslcPath = "./glslc.exe";
-                    }
-                    else if (Directory.Exists(SDKpath) && Directory.GetDirectories(SDKpath).Length > 0)
-                    {
-                        string[] SDKpaths = Directory.GetDirectories(SDKpath);
-                        glslcPath = $"{SDKpaths.Last()}/Bin/glslc.exe"; // Highest SDK version will be last in list
-                    }
-                    else
-                    {
-                        throw new FileNotFoundException("glslc.exe couldn't be found");
-                    }
-                }
-                else if (glslcPath is null && OperatingSystem.IsLinux())
-                {
-                    if (File.Exists("./glslc"))
-                    {
-                        glslcPath = "./glslc";
-                    }
-                    else
-                    {
-                        throw new FileNotFoundException("glslc couldn't be found");
-                    }
-                }
-
                 if (!Directory.Exists(searchPath))
                 {
                     throw new DirectoryNotFoundException($"{searchPath} does not exist.");
                 }
-                if (!File.Exists(glslcPath))
+
+                if (glslcPath is not null && File.Exists(glslcPath))
                 {
-                    throw new FileNotFoundException($"{glslcPath} does not exist.");
+                    Console.WriteLine($@"Using ""{glslcPath}""");
+                    List<string> glslcFiles = GetGlslcShaders(searchPath);
+                    ProcessGlslShaders(glslcFiles, glslcPath);
                 }
-
-                Console.WriteLine($@"Using ""{glslcPath}""");
-
-                List<string> files =
-                [
-                    .. Directory.GetFiles(searchPath, "*.vert", SearchOption.AllDirectories),
-                    .. Directory.GetFiles(searchPath, "*.frag", SearchOption.AllDirectories),
-                    .. Directory.GetFiles(searchPath, "*.tesc", SearchOption.AllDirectories),
-                    .. Directory.GetFiles(searchPath, "*.tese", SearchOption.AllDirectories),
-                    .. Directory.GetFiles(searchPath, "*.geom", SearchOption.AllDirectories),
-                    .. Directory.GetFiles(searchPath, "*.comp", SearchOption.AllDirectories),
-                ];
-                Console.WriteLine($@"{files.Count} shaders found in ""{searchPath}""");
-                foreach (string file in files)
+                else
                 {
-                    Console.WriteLine($@"Compiling ""{file}""");
-                    Process.Start(glslcPath, $@"""{file}"" -o ""{file}"".spv");
+                    Console.WriteLine("Skipping glslc | Argument not provided or file not found");
+                }
+                if (slangcPath is not null && File.Exists(slangcPath))
+                {
+                    Console.WriteLine($@"Using ""{slangcPath}""");
+                    List<string> slangcFiles = GetSlangShaders(searchPath);
+                    ProcessSlangShaders(slangcFiles, slangcPath);
+                }
+                else
+                {
+                    Console.WriteLine("Skipping slangc | Argument not provided or file not found");
                 }
             }
             catch (Exception ex) 
             { 
                 Console.WriteLine(ex.ToString());
             }
-            Console.WriteLine("Press enter to exit");
             Console.ReadLine();
+        }
+
+        static List<string> GetGlslcShaders(string searchPath)
+        {
+            List<string> files =
+            [
+                .. Directory.GetFiles(searchPath, "*.vert", SearchOption.AllDirectories),
+                .. Directory.GetFiles(searchPath, "*.frag", SearchOption.AllDirectories),
+                .. Directory.GetFiles(searchPath, "*.tesc", SearchOption.AllDirectories),
+                .. Directory.GetFiles(searchPath, "*.tese", SearchOption.AllDirectories),
+                .. Directory.GetFiles(searchPath, "*.geom", SearchOption.AllDirectories),
+                .. Directory.GetFiles(searchPath, "*.comp", SearchOption.AllDirectories),
+            ];
+            return files;
+        }
+        static void ProcessGlslShaders(List<string> files, string glslcPath)
+        {
+            foreach (string file in files)
+            {
+                Console.WriteLine($@"Compiling ""{file}""");
+                Process.Start(glslcPath, $@"""{file}"" -o ""{file}"".spv");
+            }
+        }
+        static List<string> GetSlangShaders(string searchPath)
+        {
+            List<string> files =
+            [
+                .. Directory.GetFiles(searchPath, "*.slang", SearchOption.AllDirectories),
+            ];
+            return files;
+        }
+        static void ProcessSlangShaders(List<string> files, string slangcPath)
+        {
+            foreach (string file in files)
+            {
+                Console.WriteLine($@"Compiling ""{file}""");
+                Process.Start(slangcPath, $@"""{file}"" -profile glsl_460 -target spirv -entry vertMain -o ""{file}"".vert.spv -matrix-layout-row-major");
+                Process.Start(slangcPath, $@"""{file}"" -profile glsl_460 -target spirv -entry fragMain -o ""{file}"".frag.spv -matrix-layout-row-major");
+            }
         }
     }
 }
