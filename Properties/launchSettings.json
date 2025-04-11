@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "Shader Compile Script": {
-      "commandName": "Project",
-      "commandLineArgs": "-dir ./ -slangc \"C:\\VulkanSDK\\1.4.304.1\\Bin\\slangc.exe\" -target spirv -slangc_args \"-matrix-layout-row-major -fvk-use-entrypoint-name\""
-    }
-  }
-}
