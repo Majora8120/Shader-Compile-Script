@@ -4,32 +4,40 @@ namespace Shader_Compile_Script
 {
     internal class Program
     {
+        public const uint MAX_BATCH_SIZE = 10; 
         static void Main(string[] args)
         {
             try
             {
+                Stopwatch stopwatch = new Stopwatch();
+                stopwatch.Start();
+
+                string? searchPath = null;
                 string? glslcPath = null;
                 string? slangcPath = null;
-                string? searchPath = null;
+                string? slangcTarget = null;
+                string? slangcArgs = null;
 
                 if (args.Length > 0)
                 {
-                    if (args.Length != 2 && args.Length != 4 && args.Length != 6)
-                    {
-                        throw new ArgumentException("Invalid amount of arguments provided");
-                    }
                     for (int i = 0; i < args.Length; i += 2)
                     {
                         switch (args[i])
                         {
                             case "-dir":
-                                searchPath = args[i + 1];
+                                searchPath = args.ElementAt(i + 1);
                                 break;
                             case "-glslc":
-                                glslcPath = args[i + 1];
+                                glslcPath = args.ElementAt(i + 1);
                                 break;
                             case "-slangc":
-                                slangcPath = args[i + 1];
+                                slangcPath = args.ElementAt(i + 1);
+                                break;
+                            case "-target":
+                                slangcTarget = args.ElementAt(i + 1);
+                                break;
+                            case "-slangc_args":
+                                slangcArgs = args.ElementAt(i + 1);
                                 break;
                             default:
                                 throw new ArgumentException("Invalid argument(s) provided");
@@ -56,16 +64,30 @@ namespace Shader_Compile_Script
                 {
                     Console.WriteLine("Skipping glslc | Argument not provided or file not found");
                 }
+
                 if (slangcPath is not null && File.Exists(slangcPath))
                 {
+                    if (slangcArgs is not null)
+                        slangcArgs = slangcArgs.Trim('"');
+                    if (slangcArgs is null)
+                        slangcArgs = "";
+                    if (slangcTarget is null)
+                        throw new ArgumentException("No Slangc target was provided");
+
                     Console.WriteLine($@"Using ""{slangcPath}""");
                     List<string> slangcFiles = GetSlangShaders(searchPath);
-                    ProcessSlangShaders(slangcFiles, slangcPath);
+                    List<SlangShader> slangShaders = ScanSlangShaders(slangcFiles);
+                    ProcessSlangShaders(slangShaders, slangcPath, slangcTarget, slangcArgs);
                 }
                 else
                 {
                     Console.WriteLine("Skipping slangc | Argument not provided or file not found");
                 }
+
+                stopwatch.Stop();
+                TimeSpan timeSpan = stopwatch.Elapsed;
+                string time = String.Format("{0:00} minutes and {1:00} seconds", timeSpan.Minutes, timeSpan.Seconds);
+                Console.WriteLine($"Finished in {time}!");
             }
             catch (Exception ex) 
             { 
@@ -89,27 +111,181 @@ namespace Shader_Compile_Script
         }
         static void ProcessGlslShaders(List<string> files, string glslcPath)
         {
+            List<Process> processes = new List<Process>();
             foreach (string file in files)
             {
+                if (processes.Count >= MAX_BATCH_SIZE)
+                {
+                    foreach (Process pro in processes)
+                    {
+                        pro.WaitForExit();
+                    }
+                    processes.Clear();
+                }
+
                 Console.WriteLine($@"Compiling ""{file}""");
-                Process.Start(glslcPath, $@"""{file}"" -o ""{file}"".spv");
+                Process process = new Process();
+                process.StartInfo.FileName = glslcPath;
+                process.StartInfo.Arguments = $@"""{file}"" -o ""{file}"".spv";
+                process.Start();
+                processes.Add(process);
             }
+            foreach (Process process in processes)
+            {
+                process.WaitForExit();
+            }
+            Console.WriteLine($"Glslc finished. {files.Count} shaders compiled!");
+        }
+        
+        struct SlangShader
+        {
+            public string filePath;
+            public bool hasVertexStage;
+            public bool hasFragmentStage;
+            public bool hasComputeStage;
+            public bool hasGeometryStage;
+            public bool hasHullStage;
+            public bool hasDomainStage;
+            public bool hasMeshStage;
         }
         static List<string> GetSlangShaders(string searchPath)
         {
-            List<string> files =
-            [
-                .. Directory.GetFiles(searchPath, "*.slang", SearchOption.AllDirectories),
-            ];
+            List<string> files = new List<string>();
+            files.AddRange(Directory.GetFiles(searchPath, $"*.slang", SearchOption.AllDirectories));
             return files;
         }
-        static void ProcessSlangShaders(List<string> files, string slangcPath)
+        static List<SlangShader> ScanSlangShaders(List<string> filePaths)
         {
-            foreach (string file in files)
+            List<SlangShader> shaders = new List<SlangShader>();
+            foreach (string path in filePaths)
             {
-                Console.WriteLine($@"Compiling ""{file}""");
-                Process.Start(slangcPath, $@"""{file}"" -profile glsl_460 -target spirv -entry vertMain -o ""{file}"".vert.spv -matrix-layout-row-major");
-                Process.Start(slangcPath, $@"""{file}"" -profile glsl_460 -target spirv -entry fragMain -o ""{file}"".frag.spv -matrix-layout-row-major");
+                SlangShader shader = new SlangShader();
+                shader.filePath = path;
+                StreamReader sr = new StreamReader(path);
+                string? line;
+                while ((line = sr.ReadLine()) != null)
+                {
+                    switch (line.ToString())
+                    {
+                        case @"[shader(""vertex"")]":
+                            shader.hasVertexStage = true;
+                            break;
+                        case @"[shader(""fragment"")]":
+                            shader.hasFragmentStage = true;
+                            break;
+                        case @"[shader(""compute"")]":
+                            shader.hasComputeStage = true;
+                            break;
+                        case @"[shader(""geometry"")]":
+                            shader.hasGeometryStage = true;
+                            break;
+                        case @"[shader(""hull"")]":
+                            shader.hasHullStage = true;
+                            break;
+                        case @"[shader(""domain"")]":
+                            shader.hasDomainStage = true;
+                            break;
+                        case @"[shader(""mesh"")]":
+                            shader.hasMeshStage = true;
+                            break;
+                        default:
+                            break;
+                    }
+                }
+                sr.Close();
+                shaders.Add(shader);
+            }
+            return shaders;
+        }
+        static void ProcessSlangShaders(List<SlangShader> shaders, string slangcPath, string target, string otherArgs)
+        {
+            List<Process> processes = new List<Process>();
+            string extension = GetTargetExtension(target);
+            foreach (SlangShader shader in shaders)
+            {
+                if (processes.Count >= MAX_BATCH_SIZE)
+                {
+                    foreach (Process process in processes)
+                    {
+                        process.WaitForExit();
+                    }
+                    processes.Clear();
+                }
+
+                Console.WriteLine($@"Compiling ""{shader.filePath}""");
+                if (shader.hasVertexStage)
+                {
+                    Process process = new Process();
+                    process.StartInfo.FileName = slangcPath;
+                    process.StartInfo.Arguments = $@"""{shader.filePath}"" -target {target} -o ""{shader.filePath.Replace(".slang", "")}"".vert.{extension} {otherArgs}";
+                    process.Start();
+                    processes.Add(process);
+                }
+                if (shader.hasFragmentStage)
+                {
+                    Process process = new Process();
+                    process.StartInfo.FileName = slangcPath;
+                    process.StartInfo.Arguments = $@"""{shader.filePath}"" -target {target} -entry fragMain -o ""{shader.filePath.Replace(".slang", "")}"".frag.{extension} {otherArgs}";
+                    process.Start();
+                    processes.Add(process);
+                }
+                if (shader.hasComputeStage)
+                {
+                    Process process = new Process();
+                    process.StartInfo.FileName = slangcPath;
+                    process.StartInfo.Arguments = $@"""{shader.filePath}"" -target {target} -entry compMain -o ""{shader.filePath.Replace(".slang", "")}"".comp.{extension} {otherArgs}";
+                    process.Start();
+                    processes.Add(process);
+                }
+                if (shader.hasGeometryStage)
+                {
+                    Process process = new Process();
+                    process.StartInfo.FileName = slangcPath;
+                    process.StartInfo.Arguments = $@"""{shader.filePath}"" -target {target} -entry geomMain -o ""{shader.filePath.Replace(".slang", "")}"".geom.{extension} {otherArgs}";
+                    process.Start();
+                    processes.Add(process);
+                }
+                if (shader.hasHullStage)
+                {
+                    Process process = new Process();
+                    process.StartInfo.FileName = slangcPath;
+                    process.StartInfo.Arguments = $@"""{shader.filePath}"" -target {target} -entry hullMain -o ""{shader.filePath.Replace(".slang", "")}"".hull.{extension} {otherArgs}";
+                    process.Start();
+                    processes.Add(process);
+                }
+                if (shader.hasDomainStage)
+                {
+                    Process process = new Process();
+                    process.StartInfo.FileName = slangcPath;
+                    process.StartInfo.Arguments = $@"""{shader.filePath}"" -target {target} -entry domainMain -o ""{shader.filePath.Replace(".slang", "")}"".domain.{extension} {otherArgs}";
+                    process.Start();
+                    processes.Add(process);
+                }
+                if (shader.hasMeshStage)
+                {
+                    Process process = new Process();
+                    process.StartInfo.FileName = slangcPath;
+                    process.StartInfo.Arguments = $@"""{shader.filePath}"" -target {target} -entry meshMain -o ""{shader.filePath.Replace(".slang", "")}"".mesh.{extension} {otherArgs}";
+                    process.Start();
+                    processes.Add(process);
+                }
+            }
+            foreach (Process process in processes)
+            {
+                process.WaitForExit();
+            }
+            Console.WriteLine($"Slangc finished. {shaders.Count} shaders compiled!");
+        }
+        static string GetTargetExtension(string target)
+        {
+            switch (target)
+            {
+                case "spirv":
+                    return "spv";
+                case "glsl":
+                    return "glsl";
+                default:
+                    return "shader";
             }
         }
     }
