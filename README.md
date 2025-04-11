@@ -47,8 +47,5 @@ Defaults to 10 if no argument is provided.
 
 ## Building
 1. Install .Net SDK 8.0 or higher.
-<br>
 2. Download source code.
-<br>
 3. Run: `dotnet build "[sourceDir]/Shader Compile Script.csproj" -r [platform]`
-<br>
