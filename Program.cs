@@ -4,68 +4,107 @@ namespace Shader_Compile_Script
 {
     internal class Program
     {
+        public const uint DEFAULT_MAX_BATCH_SIZE = 10; 
         static void Main(string[] args)
         {
             try
             {
+                Stopwatch stopwatch = new Stopwatch();
+                stopwatch.Start();
+
+                string? searchPath = null;
                 string? glslcPath = null;
                 string? slangcPath = null;
-                string? searchPath = null;
+                string? slangcTarget = null;
+                string? slangcInputExtensions = null;
+                string? slangcOutputExtension = null;
+                string? slangcArgs = null;
+                uint maxBatchSize = DEFAULT_MAX_BATCH_SIZE;
 
                 if (args.Length > 0)
                 {
-                    if (args.Length != 2 && args.Length != 4 && args.Length != 6)
-                    {
-                        throw new ArgumentException("Invalid amount of arguments provided");
-                    }
                     for (int i = 0; i < args.Length; i += 2)
                     {
                         switch (args[i])
                         {
                             case "-dir":
-                                searchPath = args[i + 1];
+                                searchPath = args.ElementAt(i + 1);
                                 break;
                             case "-glslc":
-                                glslcPath = args[i + 1];
+                                glslcPath = args.ElementAt(i + 1);
                                 break;
                             case "-slangc":
-                                slangcPath = args[i + 1];
+                                slangcPath = args.ElementAt(i + 1);
+                                break;
+                            case "-slangc_target":
+                                slangcTarget = args.ElementAt(i + 1);
+                                break;
+                            case "-slangc_in_ext":
+                                slangcInputExtensions = args.ElementAt(i + 1);
+                                break;
+                            case "-slangc_out_ext":
+                                slangcOutputExtension = args.ElementAt(i + 1);
+                                break;
+                            case "-slangc_args":
+                                slangcArgs = args.ElementAt(i + 1);
+                                break;
+                            case "-max_batch_size":
+                                maxBatchSize = UInt32.Parse(args.ElementAt(i + 1));
                                 break;
                             default:
-                                throw new ArgumentException("Invalid argument(s) provided");
+                                throw new ArgumentException("Error: Invalid argument(s) provided");
                         }
                     }
                 }
 
                 if (searchPath is null)
                 {
-                    throw new ArgumentException("No searchPath provided");
+                    throw new ArgumentException("Error: No searchPath provided");
                 }
                 if (!Directory.Exists(searchPath))
                 {
-                    throw new DirectoryNotFoundException($"{searchPath} does not exist.");
+                    throw new DirectoryNotFoundException($"Error: {searchPath} does not exist.");
+                }
+                if (maxBatchSize == 0)
+                {
+                    throw new ArgumentException("Error: Max batch size cannot be 0");
                 }
 
                 if (glslcPath is not null && File.Exists(glslcPath))
                 {
-                    Console.WriteLine($@"Using ""{glslcPath}""");
                     List<string> glslcFiles = GetGlslcShaders(searchPath);
-                    ProcessGlslShaders(glslcFiles, glslcPath);
+                    ProcessGlslShaders(glslcFiles, glslcPath, maxBatchSize);
                 }
                 else
                 {
-                    Console.WriteLine("Skipping glslc | Argument not provided or file not found");
+                    Console.WriteLine("Glslc: Skipping | Argument not provided or file not found");
                 }
+
                 if (slangcPath is not null && File.Exists(slangcPath))
                 {
-                    Console.WriteLine($@"Using ""{slangcPath}""");
-                    List<string> slangcFiles = GetSlangShaders(searchPath);
-                    ProcessSlangShaders(slangcFiles, slangcPath);
+                    if (slangcArgs is not null)
+                        slangcArgs = slangcArgs.Trim('"');
+                    if (slangcArgs is null)
+                        slangcArgs = "";
+                    if (slangcTarget is null)
+                        throw new ArgumentException("Slangc: Error: No target was provided");
+                    if (slangcInputExtensions is null)
+                        throw new ArgumentException("Slangc: Error: No input extension(s) provided");
+                    if (slangcOutputExtension is null)
+                        throw new ArgumentException("Slangc: Error: No output extension provided");
+
+                    List<string> slangShaders = GetSlangShaders(searchPath, slangcInputExtensions);
+                    ProcessSlangShaders(slangShaders, slangcPath, slangcTarget, slangcOutputExtension, slangcArgs, maxBatchSize);
                 }
                 else
                 {
-                    Console.WriteLine("Skipping slangc | Argument not provided or file not found");
+                    Console.WriteLine("Slangc: Skipping | Argument not provided or file not found");
                 }
+
+                stopwatch.Stop();
+                TimeSpan timeSpan = stopwatch.Elapsed;
+                string time = String.Format("{0:00} minutes and {1:00} seconds", timeSpan.Minutes, timeSpan.Seconds);
+                Console.WriteLine($"Finished in {time}!");
             }
             catch (Exception ex) 
             { 
@@ -87,30 +126,76 @@ namespace Shader_Compile_Script
             ];
             return files;
         }
-        static void ProcessGlslShaders(List<string> files, string glslcPath)
+        static void ProcessGlslShaders(List<string> files, string glslcPath, uint maxBatchSize)
         {
+            Console.WriteLine($"Glslc: {files.Count} shaders found");
+            List<Process> processes = new List<Process>();
             foreach (string file in files)
             {
-                Console.WriteLine($@"Compiling ""{file}""");
-                Process.Start(glslcPath, $@"""{file}"" -o ""{file}"".spv");
+                if (processes.Count >= maxBatchSize)
+                {
+                    foreach (Process pro in processes)
+                    {
+                        pro.WaitForExit();
+                    }
+                    processes.Clear();
+                }
+
+                Console.WriteLine($@"Glslc: Compiling ""{file}""");
+                Process process = new Process();
+                process.StartInfo.FileName = glslcPath;
+                process.StartInfo.Arguments = $@"""{file}"" -o ""{file}"".spv";
+                process.Start();
+                processes.Add(process);
             }
+            foreach (Process process in processes)
+            {
+                process.WaitForExit();
+            }
+            Console.WriteLine("Glslc: Finished!");
         }
-        static List<string> GetSlangShaders(string searchPath)
+
+        static List<string> GetSlangShaders(string searchPath, string extensions)
         {
-            List<string> files =
-            [
-                .. Directory.GetFiles(searchPath, "*.slang", SearchOption.AllDirectories),
-            ];
+            extensions = extensions.Trim('"');
+            extensions = extensions.Replace(".", "");
+            char[] splitChars = [' '];
+            string[] extList = extensions.Split(splitChars);
+            List<string> files = new List<string>();
+            foreach (string ext in extList)
+            {
+                files.AddRange(Directory.GetFiles(searchPath, $"*.{ext}", SearchOption.AllDirectories));
+            }
             return files;
         }
-        static void ProcessSlangShaders(List<string> files, string slangcPath)
+        static void ProcessSlangShaders(List<string> shaders, string slangcPath, string target, string extension, string otherArgs, uint maxBatchSize)
         {
-            foreach (string file in files)
+            Console.WriteLine($"Slangc: {shaders.Count} shaders found");
+            List<Process> processes = new List<Process>();
+            extension = extension.Replace(".", "");
+            foreach (string shader in shaders)
             {
-                Console.WriteLine($@"Compiling ""{file}""");
-                Process.Start(slangcPath, $@"""{file}"" -profile glsl_460 -target spirv -entry vertMain -o ""{file}"".vert.spv -matrix-layout-row-major");
-                Process.Start(slangcPath, $@"""{file}"" -profile glsl_460 -target spirv -entry fragMain -o ""{file}"".frag.spv -matrix-layout-row-major");
+                if (processes.Count >= maxBatchSize)
+                {
+                    foreach (Process pro in processes)
+                    {
+                        pro.WaitForExit();
+                    }
+                    processes.Clear();
+                }
+
+                Console.WriteLine($@"Slangc: Compiling ""{shader}""");
+                Process process = new Process();
+                process.StartInfo.FileName = slangcPath;
+                process.StartInfo.Arguments = $@"""{shader}"" -target {target} -o ""{shader.Replace(".slang", "")}"".{extension} {otherArgs}";
+                process.Start();
+                processes.Add(process);
             }
+            foreach (Process process in processes)
+            {
+                process.WaitForExit();
+            }
+            Console.WriteLine("Slangc: Finished!");
         }
     }
 }
