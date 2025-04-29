@@ -7,28 +7,30 @@ Tested on Windows 10. Should work fine on other platforms but no guarantee.
 <br>
 
 ## Usage
--dir `directory path` search directory (Required).
+-dir `directory path` | search directory (Required).
 <br>
 <br>
--glslc `file path` glslc path (Optional).
+-glslc `file path` | glslc path (Optional).
 <br>
 <br>
--slangc `file path` slangc path (Optional).
+-slangc `file path` | slangc path (Optional).
 <br>
 <br>
--max_batch_size `uint` maximum amount of shaders compiling at once<sup>1</sup> (Optional).
+-max_batch_size `uint` | maximum amount of shaders compiling at once<sup>1</sup> (Optional).
 <br>
+<br>
+-wait | waits for user input once finished (Optional).
 #### Slangc exclusive commands:
--slangc_target `slangc target` slangc compile target<sup>2</sup> (Required).
+-slangc_target `slangc target` | slangc compile target<sup>2</sup> (Required).
 <br>
 <br>
--slangc_in_ext `file extension(s)` file extension(s) to search for (Required).
+-slangc_in_ext `file extension(s)` | file extension(s) to search for (Required).
 <br>
 <br>
--slangc_out_ext `file extension` file extension for the outputted shader files (Required).
+-slangc_out_ext `file extension` | file extension for the outputted shader files (Required).
 <br>
 <br>
--slangc_args `slangc argument(s)` passes custom arguments to slangc<sup>2,3</sup> (Optional).
+-slangc_args `slangc argument(s)` | passes custom arguments to slangc<sup>2,3</sup> (Optional).
 <br>
 #### Notes:
 <sup>1</sup>Max amount of slangc/glslc instances compiling shaders at once.

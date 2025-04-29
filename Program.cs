@@ -7,19 +7,20 @@ namespace Shader_Compile_Script
         public const uint DEFAULT_MAX_BATCH_SIZE = 10; 
         static void Main(string[] args)
         {
+            string? searchPath = null;
+            string? glslcPath = null;
+            string? slangcPath = null;
+            string? slangcTarget = null;
+            string? slangcInputExtensions = null;
+            string? slangcOutputExtension = null;
+            string? slangcArgs = null;
+            uint maxBatchSize = DEFAULT_MAX_BATCH_SIZE;
+            bool waitWhenFinished = false;
+
             try
             {
                 Stopwatch stopwatch = new Stopwatch();
                 stopwatch.Start();
-
-                string? searchPath = null;
-                string? glslcPath = null;
-                string? slangcPath = null;
-                string? slangcTarget = null;
-                string? slangcInputExtensions = null;
-                string? slangcOutputExtension = null;
-                string? slangcArgs = null;
-                uint maxBatchSize = DEFAULT_MAX_BATCH_SIZE;
 
                 if (args.Length > 0)
                 {
@@ -50,6 +51,9 @@ namespace Shader_Compile_Script
                                 break;
                             case "-max_batch_size":
                                 maxBatchSize = UInt32.Parse(args.ElementAt(i + 1));
+                                break;
+                            case "-wait":
+                                waitWhenFinished = true;
                                 break;
                             default:
                                 throw new ArgumentException("Error: Invalid argument(s) provided");
@@ -110,7 +114,10 @@ namespace Shader_Compile_Script
             { 
                 Console.WriteLine(ex.ToString());
             }
-            Console.ReadLine();
+            if (waitWhenFinished)
+            {
+                Console.ReadLine();
+            }
         }
 
         static List<string> GetGlslcShaders(string searchPath)
