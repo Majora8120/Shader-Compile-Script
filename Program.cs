@@ -4,8 +4,8 @@ namespace Shader_Compile_Script
 {
     internal class Program
     {
-        public const uint DEFAULT_MAX_BATCH_SIZE = 10;
-        public static uint MaxBatchSize = DEFAULT_MAX_BATCH_SIZE;
+        const uint DEFAULT_MAX_BATCH_SIZE = 10U;
+        static uint MaxBatchSize = DEFAULT_MAX_BATCH_SIZE;
         static void Main(string[] args)
         {
             string? inputDir = null;
@@ -19,7 +19,7 @@ namespace Shader_Compile_Script
 
             try
             {
-                Stopwatch stopwatch = new Stopwatch();
+                Stopwatch stopwatch = new();
                 stopwatch.Start();
                 
                 if (args.Length > 0)
@@ -38,7 +38,7 @@ namespace Shader_Compile_Script
                                 i += 2;
                                 break;
                             case "-max_batch_size":
-                                MaxBatchSize = UInt32.Parse(args.ElementAt(i + 1));
+                                MaxBatchSize = uint.Parse(args.ElementAt(i + 1));
                                 i += 2;
                                 break;
                             case "-no_wait":
@@ -110,7 +110,7 @@ namespace Shader_Compile_Script
 
                 stopwatch.Stop();
                 TimeSpan timeSpan = stopwatch.Elapsed;
-                string time = String.Format("{0:00} minutes and {1:00} seconds", timeSpan.Minutes, timeSpan.Seconds);
+                string time = $"{timeSpan.Minutes} minutes and {timeSpan.Seconds} seconds";
                 Console.WriteLine($"INFO::Finished in {time}!");
             }
             catch (Exception ex) 
@@ -129,7 +129,7 @@ namespace Shader_Compile_Script
             extensions = extensions.Replace(".", "");
             char[] splitChars = [' '];
             string[] extList = extensions.Split(splitChars);
-            List<string> files = new List<string>();
+            List<string> files = new();
             foreach (string ext in extList)
             {
                 files.AddRange(Directory.GetFiles(dir, $"*.{ext}", SearchOption.AllDirectories));
@@ -139,7 +139,7 @@ namespace Shader_Compile_Script
         static void ProcessSlangShaders(List<string> shaders, string slangc, string target, string? outDir, string outExt, string args)
         {
             Console.WriteLine($"INFO::{shaders.Count} shader(s) found");
-            List<Process> processes = new List<Process>();
+            List<Process> processes = new();
             string extension = outExt.Replace(".", "");
             foreach (string shader in shaders)
             {
@@ -168,7 +168,7 @@ namespace Shader_Compile_Script
                     outputPath = Path.Combine(fullOutputDir, fileName) + $".{extension}";
                 }
 
-                Process process = new Process();
+                Process process = new();
                 process.StartInfo.FileName = slangc;
                 process.StartInfo.Arguments = $@"""{shader}"" -target {target} -o ""{outputPath}"" {args}";
                 process.Start();
